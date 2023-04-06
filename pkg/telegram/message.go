@@ -11,7 +11,7 @@ func (c *botClient) SendMessage(ctx context.Context, requestOptions *SendMessage
 
 	resp, err := c.doRequest(ctx, http.MethodPost, url, requestOptions)
 	if err != nil {
-		return nil, fmt.Errorf("error making request: %w", err)
+		return nil, err
 	}
 	defer resp.Body.Close()
 
@@ -29,7 +29,7 @@ func (c *botClient) SendMessage(ctx context.Context, requestOptions *SendMessage
 	}
 
 	if !response.OK {
-		return nil, fmt.Errorf("error: %s", response.Error.Description)
+		return nil, &response.Error
 	}
 
 	return &response.Message, nil

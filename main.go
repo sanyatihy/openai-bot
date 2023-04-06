@@ -1,7 +1,7 @@
 package main
 
 import (
-	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -32,9 +32,20 @@ func main() {
 	app := newApp()
 	defer app.logger.Sync()
 
-	openAIApiKey := os.Getenv("OPENAI_API_KEY")
-	openAIOrgID := os.Getenv("OPENAI_ORG_ID")
-	telegramToken := os.Getenv("TELEGRAM_BOT_TOKEN")
+	envVars := map[string]string{
+		"OPENAI_API_KEY":     "",
+		"OPENAI_ORG_ID":      "",
+		"TELEGRAM_BOT_TOKEN": "",
+	}
+
+	for envVar := range envVars {
+		value, exists := os.LookupEnv(envVar)
+		if !exists {
+			app.logger.Error(fmt.Sprintf("Environment variable %s not found", envVar))
+			os.Exit(1)
+		}
+		envVars[envVar] = value
+	}
 
 	transport := &http.Transport{
 		MaxIdleConns:       10,
@@ -45,14 +56,11 @@ func main() {
 		Transport: transport,
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-	defer cancel()
-
-	openAIClient := openai.NewClient(httpClient, app.logger, openAIApiKey, openAIOrgID)
-	tgBotClient := telegram.NewBotClient(httpClient, telegramToken)
+	openAIClient := openai.NewClient(httpClient, envVars["OPENAI_API_KEY"], envVars["OPENAI_ORG_ID"])
+	tgBotClient := telegram.NewBotClient(httpClient, envVars["TELEGRAM_BOT_TOKEN"])
 	proc := processor.NewProcessor(app.logger, openAIClient, tgBotClient)
 
-	if err := proc.Start(ctx); err != nil {
+	if err := proc.Start(); err != nil {
 		app.logger.Error("Failed to start processing", zap.Error(err))
 		os.Exit(1)
 	}

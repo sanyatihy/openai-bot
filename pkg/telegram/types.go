@@ -20,11 +20,7 @@ type SendMessageRequest struct {
 	Text   string `json:"text"`
 }
 
-type APIError struct {
-	ErrorCode   int    `json:"error_code"`
-	Description string `json:"description"`
-}
-
 type GetUpdatesRequest struct {
-	Offset int `json:"offset,omitempty"`
+	Offset  int `json:"offset,omitempty"`
+	Timeout int `json:"timeout,omitempty"`
 }

@@ -11,7 +11,7 @@ func (c *botClient) GetUpdates(ctx context.Context, requestOptions *GetUpdatesRe
 
 	resp, err := c.doRequest(ctx, http.MethodPost, url, requestOptions)
 	if err != nil {
-		return nil, fmt.Errorf("error making request: %w", err)
+		return nil, err
 	}
 	defer resp.Body.Close()
 
@@ -29,7 +29,7 @@ func (c *botClient) GetUpdates(ctx context.Context, requestOptions *GetUpdatesRe
 	}
 
 	if !response.OK {
-		return nil, fmt.Errorf("error: %s", response.Error.Description)
+		return nil, &response.Error
 	}
 
 	return response.Updates, nil

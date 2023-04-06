@@ -8,32 +8,35 @@ import (
 	"github.com/sanyatihy/openai-bot/pkg/telegram"
 	"go.uber.org/zap"
 	"os"
+	"strings"
 	"time"
 )
 
 const lastUpdateIDFile = "last_update_id.json"
 
-func (p *processor) Start(ctx context.Context) error {
-	response, err := p.openAIClient.GetModel(ctx, "gpt-3.5-turbo")
-	if err != nil {
-		p.logger.Error("Error:", zap.Error(err))
-	}
-	p.logger.Info(fmt.Sprintf("Got response: %s", response.ID))
-
+func (p *processor) Start() error {
 	lastUpdateID, err := p.loadLastUpdateIDFromFile(lastUpdateIDFile)
 	if err != nil {
-		p.logger.Error("Error loading last update ID: ", zap.Error(err))
+		p.logger.Error("Error loading last update ID", zap.Error(err))
 	}
 
 	for {
-		requestOptions := &telegram.GetUpdatesRequest{
-			Offset: lastUpdateID + 1,
+		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+
+		getUpdatesRequest := &telegram.GetUpdatesRequest{
+			Offset:  lastUpdateID + 1,
+			Timeout: 30,
 		}
-		updates, err := p.tgBotClient.GetUpdates(ctx, requestOptions)
+
+		p.logger.Info("Getting updates...")
+		var updates []telegram.Update
+		err := p.RetryWithBackoff(5, func() error {
+			var err error
+			updates, err = p.tgBotClient.GetUpdates(ctx, getUpdatesRequest)
+			return err
+		})
 		if err != nil {
-			p.logger.Error("Error getting updates:", zap.Error(err))
-			time.Sleep(5 * time.Second)
-			continue
+			p.logger.Error("Error getting updates", zap.Error(err))
 		}
 
 		for _, update := range updates {
@@ -41,24 +44,24 @@ func (p *processor) Start(ctx context.Context) error {
 				lastUpdateID = update.UpdateID
 			}
 
-			p.logger.Info(fmt.Sprintf("Got text: %s", update.Message.Text))
-
-			requestOptions := &telegram.SendMessageRequest{
-				ChatID: update.Message.Chat.ID,
-				Text:   update.Message.Text,
-			}
-			_, err = p.tgBotClient.SendMessage(ctx, requestOptions)
-			if err != nil {
-				p.logger.Error(fmt.Sprintf("Error sending message to chat %d:", update.Message.Chat.ID), zap.Error(err))
+			if strings.HasPrefix(update.Message.Text, "/") {
+				if err = p.handleCommand(ctx, update.Message); err != nil {
+					p.logger.Error(fmt.Sprintf("Error handling command in chat %d", update.Message.Chat.ID), zap.Error(err))
+				}
+			} else {
+				if err = p.handleMessage(ctx, update.Message); err != nil {
+					p.logger.Error(fmt.Sprintf("Error handling message in chat %d", update.Message.Chat.ID), zap.Error(err))
+				}
 			}
 		}
 
 		err = p.saveLastUpdateIDToFile(lastUpdateIDFile, lastUpdateID)
 		if err != nil {
-			p.logger.Error("Error saving last update ID: ", zap.Error(err))
+			p.logger.Error("Error saving last update ID", zap.Error(err))
 		}
 
-		time.Sleep(5 * time.Second)
+		time.Sleep(3 * time.Second)
+		cancel()
 	}
 }
 

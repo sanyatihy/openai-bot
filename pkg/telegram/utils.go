@@ -14,18 +14,29 @@ func (c *botClient) doRequest(ctx context.Context, method, endpoint string, requ
 	if requestData != nil {
 		encoder := json.NewEncoder(&reqBody)
 		if err := encoder.Encode(requestData); err != nil {
-			return nil, fmt.Errorf("error encoding request body: %w", err)
+			return nil, &InternalError{
+				Message: fmt.Sprintf("error encoding request body: %s", err),
+			}
 		}
 	}
 
 	req, err := http.NewRequestWithContext(ctx, method, endpoint, &reqBody)
 	if err != nil {
-		return nil, fmt.Errorf("error creating request: %w", err)
+		return nil, &InternalError{
+			Message: fmt.Sprintf("error creating request: %s", err),
+		}
 	}
 
 	c.setDefaultHeaders(req)
 
-	return c.httpClient.Do(req)
+	res, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, &InternalError{
+			Message: fmt.Sprintf("error making request: %s", err),
+		}
+	}
+
+	return res, nil
 }
 
 func (c *botClient) setDefaultHeaders(req *http.Request) {
@@ -35,7 +46,9 @@ func (c *botClient) setDefaultHeaders(req *http.Request) {
 func (c *botClient) processResponseBody(resp *http.Response, target interface{}) error {
 	decoder := json.NewDecoder(resp.Body)
 	if err := decoder.Decode(target); err != nil {
-		return fmt.Errorf("error decoding response body: %w", err)
+		return &InternalError{
+			Message: fmt.Sprintf("error decoding response body: %s", err),
+		}
 	}
 
 	return nil
