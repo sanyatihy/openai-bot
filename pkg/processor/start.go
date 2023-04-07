@@ -5,14 +5,24 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/sanyatihy/openai-bot/pkg/telegram"
-	"go.uber.org/zap"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/sanyatihy/openai-bot/pkg/telegram"
+	"go.uber.org/zap"
 )
 
-const lastUpdateIDFile = "last_update_id.json"
+const (
+	openAIModelID    = "gpt-3.5-turbo"
+	lastUpdateIDFile = "last_update_id.json"
+)
+
+var (
+	pricingPerOneK = map[string]float64{
+		"gpt-3.5-turbo": 0.0002,
+	}
+)
 
 func (p *processor) Start() error {
 	lastUpdateID, err := p.loadLastUpdateIDFromFile(lastUpdateIDFile)
@@ -29,6 +39,7 @@ func (p *processor) Start() error {
 		}
 
 		p.logger.Info("Getting updates...")
+
 		var updates []telegram.Update
 		err := p.RetryWithBackoff(5, func() error {
 			var err error
@@ -44,7 +55,21 @@ func (p *processor) Start() error {
 				lastUpdateID = update.UpdateID
 			}
 
-			if strings.HasPrefix(update.Message.Text, "/") {
+			if update.Message.Text == nil {
+				p.logger.Error("Error, got empty message text")
+
+				_, err = p.tgBotClient.SendMessage(ctx, &telegram.SendMessageRequest{
+					ChatID: update.Message.Chat.ID,
+					Text:   "That doesn't look like a valid message to me, try again",
+				})
+				if err != nil {
+					p.logger.Error(fmt.Sprintf("Error sending message to chat %d", update.Message.Chat.ID), zap.Error(err))
+				}
+
+				continue
+			}
+
+			if strings.HasPrefix(*update.Message.Text, "/") {
 				if err = p.handleCommand(ctx, update.Message); err != nil {
 					p.logger.Error(fmt.Sprintf("Error handling command in chat %d", update.Message.Chat.ID), zap.Error(err))
 				}

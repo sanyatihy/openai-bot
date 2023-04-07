@@ -2,9 +2,10 @@ package processor
 
 import (
 	"fmt"
-	"go.uber.org/zap"
 	"math/rand"
 	"time"
+
+	"go.uber.org/zap"
 )
 
 type RetryableFunc func() error
