@@ -20,9 +20,12 @@ vendor/
 # Go workspace file
 go.work
 
+# Environments
+.env
+
 bin/
+var/
 
 .idea/*
 
 last_update_id.json
-
