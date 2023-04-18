@@ -85,7 +85,7 @@ func (p *processor) handleAboutCommand(ctx context.Context, message telegram.Mes
 }
 
 func (p *processor) handleClearCommand(ctx context.Context, message telegram.Message) error {
-	err := p.clearChatContext(ctx, message.Chat.ID)
+	err := p.db.ClearChatContext(ctx, message.Chat.ID)
 	if err != nil {
 		p.logger.Error(fmt.Sprintf("Error clearing chat %d context in db", message.Chat.ID), zap.Error(err))
 		return err
@@ -125,7 +125,7 @@ func (p *processor) handleMessage(ctx context.Context, message telegram.Message)
 	}
 	text := *message.Text
 
-	existingContext, err := p.getChatContext(ctx, message.Chat.ID)
+	existingContext, err := p.db.GetChatContext(ctx, message.Chat.ID)
 	if err != nil {
 		p.logger.Error(fmt.Sprintf("Error retrieving chat %d context from db", message.Chat.ID), zap.Error(err))
 		return err
@@ -168,7 +168,7 @@ func (p *processor) handleMessage(ctx context.Context, message telegram.Message)
 		Content: response.Choices[0].Message.Content,
 	})
 
-	err = p.updateChatContext(ctx, message.Chat.ID, messages)
+	err = p.db.UpdateChatContext(ctx, message.Chat.ID, messages)
 	if err != nil {
 		p.logger.Error(fmt.Sprintf("Error updating chat %d context in db", message.Chat.ID), zap.Error(err))
 		return err

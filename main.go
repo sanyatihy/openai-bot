@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	storage2 "github.com/sanyatihy/openai-bot/pkg/storage"
 	"github.com/sanyatihy/openai-go/pkg/openai"
 	"log"
 	"net/http"
@@ -74,7 +75,8 @@ func main() {
 
 	openAIClient := openai.NewClient(httpClient, envVars["OPENAI_API_KEY"], envVars["OPENAI_ORG_ID"])
 	tgBotClient := telegram.NewBotClient(httpClient, envVars["TELEGRAM_BOT_TOKEN"])
-	proc := processor.NewProcessor(app.logger, openAIClient, tgBotClient, dbpool)
+	storage := storage2.NewPostgresStorage(dbpool)
+	proc := processor.NewProcessor(app.logger, openAIClient, tgBotClient, storage)
 
 	if err := proc.Start(); err != nil {
 		app.logger.Error("Failed to start processing", zap.Error(err))

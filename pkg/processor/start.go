@@ -11,8 +11,7 @@ import (
 )
 
 const (
-	openAIModelID    = "gpt-3.5-turbo"
-	lastUpdateIDFile = "last_update_id.json"
+	openAIModelID = "gpt-3.5-turbo"
 )
 
 var (
@@ -25,13 +24,13 @@ func (p *processor) Start() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	err := p.runInitialMigrations(ctx)
+	err := p.db.RunInitialMigrations(ctx)
 	if err != nil {
 		p.logger.Error("Failed to run initial migrations", zap.Error(err))
 		return err
 	}
 
-	lastUpdateID, err := p.loadLastUpdateIDFromDB(ctx)
+	lastUpdateID, err := p.db.LoadLastUpdateIDFromDB(ctx)
 	if err != nil {
 		p.logger.Error("Error loading last update ID", zap.Error(err))
 	}
@@ -86,7 +85,7 @@ func (p *processor) Start() error {
 			}
 		}
 
-		err = p.saveLastUpdateIDToDB(ctx, lastUpdateID)
+		err = p.db.SaveLastUpdateIDToDB(ctx, lastUpdateID)
 		if err != nil {
 			p.logger.Error("Error saving last update ID", zap.Error(err))
 		}
