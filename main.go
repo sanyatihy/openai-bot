@@ -3,17 +3,19 @@ package main
 import (
 	"context"
 	"fmt"
-	storage2 "github.com/sanyatihy/openai-bot/pkg/storage"
-	"github.com/sanyatihy/openai-go/pkg/openai"
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
 	"github.com/sanyatihy/openai-bot/pkg/processor"
+	storage "github.com/sanyatihy/openai-bot/pkg/storage"
 	"github.com/sanyatihy/openai-bot/pkg/telegram"
+	"github.com/sanyatihy/openai-go/pkg/openai"
 	"go.uber.org/zap"
 )
 
@@ -75,11 +77,18 @@ func main() {
 
 	openAIClient := openai.NewClient(httpClient, envVars["OPENAI_API_KEY"], envVars["OPENAI_ORG_ID"])
 	tgBotClient := telegram.NewBotClient(httpClient, envVars["TELEGRAM_BOT_TOKEN"])
-	storage := storage2.NewPostgresStorage(dbpool)
-	proc := processor.NewProcessor(app.logger, openAIClient, tgBotClient, storage)
+	db := storage.NewPostgresStorage(dbpool)
+	queue := storage.NewPostgresQueue(dbpool)
+	proc := processor.NewProcessor(app.logger, openAIClient, tgBotClient, db, queue, 1)
+
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
 	if err := proc.Start(); err != nil {
 		app.logger.Error("Failed to start processing", zap.Error(err))
 		os.Exit(1)
 	}
+
+	<-sigChan
+	app.logger.Info("Shutting down...")
 }

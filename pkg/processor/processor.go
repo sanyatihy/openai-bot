@@ -8,21 +8,29 @@ import (
 )
 
 type processor struct {
-	logger       *zap.Logger
-	openAIClient openai.Client
-	tgBotClient  telegram.BotClient
-	db           *storage.PostgresStorage
+	logger            *zap.Logger
+	openAIClient      openai.Client
+	tgBotClient       telegram.BotClient
+	db                storage.PostgresStorage
+	queue             storage.PostgresQueue
+	concurrentWorkers int
+	queueSemaphore    chan struct{}
 }
 
 func NewProcessor(logger *zap.Logger,
 	openAIClient openai.Client,
 	tgBotClient telegram.BotClient,
-	db *storage.PostgresStorage,
+	db storage.PostgresStorage,
+	queue storage.PostgresQueue,
+	concurrentWorkers int,
 ) Processor {
 	return &processor{
-		logger:       logger,
-		openAIClient: openAIClient,
-		tgBotClient:  tgBotClient,
-		db:           db,
+		logger:            logger,
+		openAIClient:      openAIClient,
+		tgBotClient:       tgBotClient,
+		db:                db,
+		queue:             queue,
+		concurrentWorkers: concurrentWorkers,
+		queueSemaphore:    make(chan struct{}, concurrentWorkers),
 	}
 }

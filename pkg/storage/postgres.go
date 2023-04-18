@@ -24,22 +24,22 @@ const (
 	deleteChatContextQuery      = "DELETE FROM %s.%s WHERE chat_id = $1;"
 
 	createLastUpdateIDTableQuery = "CREATE TABLE IF NOT EXISTS %s.%s (id SERIAL PRIMARY KEY, update_id INT NOT NULL);"
-	getLastUpdateIDQuery         = "SELECT update_id FROM %s.%s WHERE id = 1;"
-	saveLastUpdateIDQuery        = "INSERT INTO %s.%s (id, update_id) VALUES (1, $1) ON CONFLICT (id) DO UPDATE SET update_id = $1;"
 )
 
-type PostgresStorage struct {
-	*pgxpool.Pool
+type postgresStorage struct {
+	db *pgxpool.Pool
 }
 
-func NewPostgresStorage(pool *pgxpool.Pool) *PostgresStorage {
-	return &PostgresStorage{pool}
+func NewPostgresStorage(pool *pgxpool.Pool) PostgresStorage {
+	return &postgresStorage{
+		db: pool,
+	}
 }
 
-func (s *PostgresStorage) GetChatContext(ctx context.Context, chatID int) ([]openai.Message, error) {
+func (s *postgresStorage) GetChatContext(ctx context.Context, chatID int) ([]openai.Message, error) {
 	var contextJSON string
 
-	err := s.QueryRow(ctx, fmt.Sprintf(getChatContextQuery, schema, chatContextTable), chatID).Scan(&contextJSON)
+	err := s.db.QueryRow(ctx, fmt.Sprintf(getChatContextQuery, schema, chatContextTable), chatID).Scan(&contextJSON)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, nil
@@ -56,54 +56,36 @@ func (s *PostgresStorage) GetChatContext(ctx context.Context, chatID int) ([]ope
 	return messages, nil
 }
 
-func (s *PostgresStorage) UpdateChatContext(ctx context.Context, chatID int, messages []openai.Message) error {
+func (s *postgresStorage) UpdateChatContext(ctx context.Context, chatID int, messages []openai.Message) error {
 	contextJSON, err := json.Marshal(messages)
 	if err != nil {
 		return err
 	}
 
-	_, err = s.Exec(ctx, fmt.Sprintf(updateChatContextQuery, schema, chatContextTable), chatID, string(contextJSON))
+	_, err = s.db.Exec(ctx, fmt.Sprintf(updateChatContextQuery, schema, chatContextTable), chatID, string(contextJSON))
 	return err
 }
 
-func (s *PostgresStorage) ClearChatContext(ctx context.Context, chatID int) error {
-	_, err := s.Exec(ctx, fmt.Sprintf(deleteChatContextQuery, schema, chatContextTable), chatID)
+func (s *postgresStorage) ClearChatContext(ctx context.Context, chatID int) error {
+	_, err := s.db.Exec(ctx, fmt.Sprintf(deleteChatContextQuery, schema, chatContextTable), chatID)
 	return err
 }
 
-func (s *PostgresStorage) RunInitialMigrations(ctx context.Context) error {
-	_, err := s.Exec(ctx, fmt.Sprintf(createSchemaQuery, schema))
+func (s *postgresStorage) RunInitialMigrations(ctx context.Context) error {
+	_, err := s.db.Exec(ctx, fmt.Sprintf(createSchemaQuery, schema))
 	if err != nil {
 		return fmt.Errorf("failed to create schema %s: %w", schema, err)
 	}
 
-	_, err = s.Exec(ctx, fmt.Sprintf(createChatContextTableQuery, schema, chatContextTable))
+	_, err = s.db.Exec(ctx, fmt.Sprintf(createChatContextTableQuery, schema, chatContextTable))
 	if err != nil {
 		return fmt.Errorf("failed to create table %s: %w", chatContextTable, err)
 	}
 
-	_, err = s.Exec(ctx, fmt.Sprintf(createLastUpdateIDTableQuery, schema, lastUpdateIDTable))
+	_, err = s.db.Exec(ctx, fmt.Sprintf(createChatUpdatesTableQuery, schema, chatUpdatesTable))
 	if err != nil {
 		return fmt.Errorf("failed to create table %s: %w", lastUpdateIDTable, err)
 	}
 
 	return nil
-}
-
-func (s *PostgresStorage) LoadLastUpdateIDFromDB(ctx context.Context) (int, error) {
-	var lastUpdateID int
-	err := s.QueryRow(ctx, fmt.Sprintf(getLastUpdateIDQuery, schema, lastUpdateIDTable)).Scan(&lastUpdateID)
-	if err != nil {
-		if err == pgx.ErrNoRows {
-			return 0, nil
-		}
-		return 0, err
-	}
-
-	return lastUpdateID, nil
-}
-
-func (s *PostgresStorage) SaveLastUpdateIDToDB(ctx context.Context, lastUpdateID int) error {
-	_, err := s.Exec(ctx, fmt.Sprintf(saveLastUpdateIDQuery, schema, lastUpdateIDTable), lastUpdateID)
-	return err
 }
