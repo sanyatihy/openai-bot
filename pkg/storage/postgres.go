@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/sanyatihy/openai-go/pkg/openai"
 )
 
@@ -27,12 +26,12 @@ const (
 )
 
 type postgresStorage struct {
-	db *pgxpool.Pool
+	db DBPool
 }
 
-func NewPostgresStorage(pool *pgxpool.Pool) PostgresStorage {
+func NewPostgresStorage(db DBPool) PostgresStorage {
 	return &postgresStorage{
-		db: pool,
+		db: db,
 	}
 }
 

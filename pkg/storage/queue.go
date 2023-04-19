@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/sanyatihy/openai-bot/pkg/telegram"
 	"time"
 )
@@ -23,10 +22,10 @@ const (
 )
 
 type postgresQueue struct {
-	db *pgxpool.Pool
+	db DBPool
 }
 
-func NewPostgresQueue(db *pgxpool.Pool) PostgresQueue {
+func NewPostgresQueue(db DBPool) PostgresQueue {
 	return &postgresQueue{
 		db: db,
 	}
