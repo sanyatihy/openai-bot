@@ -14,7 +14,8 @@ type processor struct {
 	db                storage.PostgresStorage
 	queue             storage.PostgresQueue
 	concurrentWorkers int
-	queueSemaphore    chan struct{}
+	queueUpdates      chan updateWithID
+	queueBufferSize   int
 }
 
 func NewProcessor(logger *zap.Logger,
@@ -23,6 +24,7 @@ func NewProcessor(logger *zap.Logger,
 	db storage.PostgresStorage,
 	queue storage.PostgresQueue,
 	concurrentWorkers int,
+	queueBufferSize int,
 ) Processor {
 	return &processor{
 		logger:            logger,
@@ -31,6 +33,6 @@ func NewProcessor(logger *zap.Logger,
 		db:                db,
 		queue:             queue,
 		concurrentWorkers: concurrentWorkers,
-		queueSemaphore:    make(chan struct{}, concurrentWorkers),
+		queueUpdates:      make(chan updateWithID, queueBufferSize),
 	}
 }

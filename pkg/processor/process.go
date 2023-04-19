@@ -20,9 +20,16 @@ var (
 	}
 )
 
+type updateWithID struct {
+	updateID int
+	update   telegram.Update
+}
+
 func (p *processor) Start() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
+
+	p.initWorkers()
 
 	err := p.db.RunInitialMigrations(ctx)
 	if err != nil {
@@ -31,9 +38,15 @@ func (p *processor) Start() error {
 	}
 
 	go p.GetUpdates()
-	go p.ProcessUpdates(p.processUpdate)
+	go p.ProcessUpdates()
 
 	return nil
+}
+
+func (p *processor) initWorkers() {
+	for i := 0; i < p.concurrentWorkers; i++ {
+		go p.worker(i)
+	}
 }
 
 func (p *processor) GetUpdates() {
@@ -72,42 +85,68 @@ func (p *processor) GetUpdates() {
 			p.logger.Error("Error getting updates", zap.Error(err))
 		}
 
-		for _, update := range updates {
-			err := p.RetryWithBackoff(3, func() error {
-				var err error
-				err = p.queue.InsertChatUpdate(ctx, update)
-				if err != nil {
-					p.logger.Error("Error", zap.Error(err))
-				}
-				return err
-			})
-			if err != nil {
-				p.logger.Error("Failed to insert chat updates", zap.Error(err))
-			}
-		}
+		p.InsertUpdates(ctx, updates)
 
 		time.Sleep(3 * time.Second)
 		cancel()
 	}
 }
 
-func (p *processor) ProcessUpdates(processUpdate func(ctx context.Context, update telegram.Update) error) {
+func (p *processor) InsertUpdates(ctx context.Context, updates []telegram.Update) {
+	for _, update := range updates {
+		err := p.RetryWithBackoff(3, func() error {
+			var err error
+			err = p.queue.InsertChatUpdate(ctx, update)
+			if err != nil {
+				p.logger.Error("Error", zap.Error(err))
+			}
+			return err
+		})
+		if err != nil {
+			p.logger.Error("Failed to insert chat updates", zap.Error(err))
+		}
+	}
+}
+
+func (p *processor) worker(id int) {
+	for updateWithID := range p.queueUpdates {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		err := p.processUpdate(ctx, updateWithID.update)
+		status := "processed"
+		if err != nil {
+			status = "error"
+		}
+		err = p.RetryWithBackoff(3, func() error {
+			err = p.queue.SetChatUpdateStatus(ctx, updateWithID.updateID, status)
+			if err != nil {
+				p.logger.Error("Error", zap.Error(err))
+			}
+			return err
+		})
+		if err != nil {
+			p.logger.Error("Error", zap.Error(err))
+		}
+		cancel()
+	}
+}
+
+func (p *processor) ProcessUpdates() {
 	for {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 
-		updateID, update, err := p.queue.GetNextChatUpdate(ctx, "processing")
-		if err != nil {
-			p.RetryWithBackoff(2, func() error {
-				updateID, update, err = p.queue.GetNextChatUpdate(ctx, "processing")
-				if err != nil {
-					p.logger.Error("Error", zap.Error(err))
-				}
-				return err
-			})
+		var updateID int
+		var update telegram.Update
+		err := p.RetryWithBackoff(3, func() error {
+			var err error
+			updateID, update, err = p.queue.GetNextChatUpdate(ctx, "processing")
 			if err != nil {
 				p.logger.Error("Error", zap.Error(err))
-				continue
 			}
+			return err
+		})
+		if err != nil {
+			p.logger.Error("Error", zap.Error(err))
+			continue
 		}
 
 		if updateID == 0 {
@@ -115,21 +154,7 @@ func (p *processor) ProcessUpdates(processUpdate func(ctx context.Context, updat
 			continue
 		}
 
-		p.queueSemaphore <- struct{}{}
-
-		go func(updateID int, update telegram.Update) {
-			defer func() { <-p.queueSemaphore }()
-			ctx, cancel = context.WithTimeout(context.Background(), 30*time.Second)
-
-			err := processUpdate(ctx, update)
-			if err != nil {
-				_ = p.queue.SetChatUpdateStatus(ctx, updateID, "error")
-			} else {
-				_ = p.queue.SetChatUpdateStatus(ctx, updateID, "processed")
-			}
-
-			cancel()
-		}(updateID, update)
+		p.queueUpdates <- updateWithID{updateID: updateID, update: update}
 
 		cancel()
 	}

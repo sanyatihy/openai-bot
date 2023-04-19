@@ -15,10 +15,10 @@ const (
 )
 
 const (
-	createChatUpdatesTableQuery = "CREATE TABLE IF NOT EXISTS %s.%s (id SERIAL PRIMARY KEY, update_data JSONB NOT NULL, status VARCHAR(20) NOT NULL, created_at TIMESTAMP NOT NULL);"
-	insertChatUpdatesQuery      = "INSERT INTO %s.%s (update_data, status, created_at) VALUES ($1, $2, $3);"
-	getNextChatUpdateQuery      = "SELECT id, update_data FROM %s.%s WHERE status = 'pending' ORDER BY created_at FOR UPDATE SKIP LOCKED LIMIT 1;"
-	getLastChatUpdateQuery      = "SELECT update_data FROM %s.%s ORDER BY created_at DESC LIMIT 1;"
+	createChatUpdatesTableQuery = "CREATE TABLE IF NOT EXISTS %s.%s (id SERIAL PRIMARY KEY, update_id INTEGER NOT NULL, update_data JSONB NOT NULL, status VARCHAR(20) NOT NULL, created_at TIMESTAMP NOT NULL);"
+	insertChatUpdatesQuery      = "INSERT INTO %s.%s (update_id, update_data, status, created_at) VALUES ($1, $2, $3, $4);"
+	getNextChatUpdateQuery      = "SELECT id, update_data FROM %s.%s WHERE status = 'pending' ORDER BY update_id FOR UPDATE SKIP LOCKED LIMIT 1;"
+	getLastChatUpdateQuery      = "SELECT update_data FROM %s.%s ORDER BY update_id DESC LIMIT 1;"
 	setChatUpdateStatusQuery    = "UPDATE %s.%s SET status = $1 WHERE id = $2;"
 )
 
@@ -38,7 +38,7 @@ func (q *postgresQueue) InsertChatUpdate(ctx context.Context, update telegram.Up
 		return err
 	}
 
-	_, err = q.db.Exec(ctx, fmt.Sprintf(insertChatUpdatesQuery, schema, chatUpdatesTable), string(updateJSON), "pending", time.Now())
+	_, err = q.db.Exec(ctx, fmt.Sprintf(insertChatUpdatesQuery, schema, chatUpdatesTable), update.UpdateID, string(updateJSON), "pending", time.Now())
 	return err
 }
 

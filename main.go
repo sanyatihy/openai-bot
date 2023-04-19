@@ -19,28 +19,15 @@ import (
 	"go.uber.org/zap"
 )
 
-type App struct {
-	logger *zap.Logger
-}
-
-func newApp() *App {
+func main() {
 	logger, err := zap.NewProduction()
 	if err != nil {
 		log.Fatalf("Failed to create logger: %v", err)
 	}
+	defer logger.Sync()
 
-	return &App{
-		logger: logger,
-	}
-}
-
-func main() {
-	app := newApp()
-	defer app.logger.Sync()
-
-	err := godotenv.Load()
-	if err != nil {
-		app.logger.Error("Error loading .env file")
+	if err = godotenv.Load(); err != nil {
+		logger.Error("Error loading .env file")
 	}
 
 	envVars := map[string]string{
@@ -53,7 +40,7 @@ func main() {
 	for envVar := range envVars {
 		value, exists := os.LookupEnv(envVar)
 		if !exists {
-			app.logger.Error(fmt.Sprintf("Environment variable %s not found", envVar))
+			logger.Error(fmt.Sprintf("Environment variable %s not found", envVar))
 			os.Exit(1)
 		}
 		envVars[envVar] = value
@@ -62,7 +49,7 @@ func main() {
 	connString := envVars["POSTGRES_DSN"]
 	dbpool, err := pgxpool.New(context.Background(), connString)
 	if err != nil {
-		app.logger.Error("Failed to connect to the database", zap.Error(err))
+		logger.Error("Failed to connect to the database", zap.Error(err))
 	}
 	defer dbpool.Close()
 
@@ -79,16 +66,16 @@ func main() {
 	tgBotClient := telegram.NewBotClient(httpClient, envVars["TELEGRAM_BOT_TOKEN"])
 	db := storage.NewPostgresStorage(dbpool)
 	queue := storage.NewPostgresQueue(dbpool)
-	proc := processor.NewProcessor(app.logger, openAIClient, tgBotClient, db, queue, 1)
+	proc := processor.NewProcessor(logger, openAIClient, tgBotClient, db, queue, 5, 16)
 
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
 	if err := proc.Start(); err != nil {
-		app.logger.Error("Failed to start processing", zap.Error(err))
+		logger.Error("Failed to start processing", zap.Error(err))
 		os.Exit(1)
 	}
 
 	<-sigChan
-	app.logger.Info("Shutting down...")
+	logger.Info("Shutting down...")
 }

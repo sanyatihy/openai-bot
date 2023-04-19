@@ -35,34 +35,31 @@ func (p *processor) handleCommand(ctx context.Context, message telegram.Message)
 	}
 }
 
-func (p *processor) handleStartCommand(ctx context.Context, message telegram.Message) error {
+func (p *processor) sendMessage(ctx context.Context, chatID int, text string) error {
 	_, err := p.tgBotClient.SendMessage(ctx, &telegram.SendMessageRequest{
-		ChatID: message.Chat.ID,
-		Text:   "Welcome to the bot!",
+		ChatID: chatID,
+		Text:   text,
 	})
 	if err != nil {
-		p.logger.Error(fmt.Sprintf("Error sending message to chat %d", message.Chat.ID), zap.Error(err))
-		return err
+		p.logger.Error(fmt.Sprintf("Error sending message to chat %d", chatID), zap.Error(err))
 	}
+	return err
+}
 
-	return nil
+func (p *processor) handleStartCommand(ctx context.Context, message telegram.Message) error {
+	text := "Welcome to the bot!"
+	return p.sendMessage(ctx, message.Chat.ID, text)
 }
 
 func (p *processor) handleHelpCommand(ctx context.Context, message telegram.Message) error {
-	_, err := p.tgBotClient.SendMessage(ctx, &telegram.SendMessageRequest{
-		ChatID: message.Chat.ID,
-		Text: "Here is a list of available commands:\n\n" +
-			"/start - Start the bot\n" +
-			"/clear - Clear conversation context\n" +
-			"/help - Show help message\n" +
-			"/about - About the bot",
-	})
-	if err != nil {
-		p.logger.Error(fmt.Sprintf("Error sending message to chat %d", message.Chat.ID), zap.Error(err))
-		return err
-	}
+	text := `Here is a list of available commands:
 
-	return nil
+/start - Start the bot
+/clear - Clear conversation context
+/help - Show help message
+/about - About the bot
+`
+	return p.sendMessage(ctx, message.Chat.ID, text)
 }
 
 func (p *processor) handleAboutCommand(ctx context.Context, message telegram.Message) error {
@@ -71,17 +68,8 @@ func (p *processor) handleAboutCommand(ctx context.Context, message telegram.Mes
 		return err
 	}
 
-	_, err = p.tgBotClient.SendMessage(ctx, &telegram.SendMessageRequest{
-		ChatID: message.Chat.ID,
-		Text: fmt.Sprintf("I send your messages to OpenAI GPT.\n"+
-			"Current GPT model: %s", response.ID),
-	})
-	if err != nil {
-		p.logger.Error(fmt.Sprintf("Error sending message to chat %d", message.Chat.ID), zap.Error(err))
-		return err
-	}
-
-	return nil
+	text := fmt.Sprintf("I send your messages to OpenAI GPT.\nCurrent GPT model: %s", response.ID)
+	return p.sendMessage(ctx, message.Chat.ID, text)
 }
 
 func (p *processor) handleClearCommand(ctx context.Context, message telegram.Message) error {
@@ -91,29 +79,13 @@ func (p *processor) handleClearCommand(ctx context.Context, message telegram.Mes
 		return err
 	}
 
-	_, err = p.tgBotClient.SendMessage(ctx, &telegram.SendMessageRequest{
-		ChatID: message.Chat.ID,
-		Text:   "Conversation context successfully cleared.",
-	})
-	if err != nil {
-		p.logger.Error(fmt.Sprintf("Error sending message to chat %d", message.Chat.ID), zap.Error(err))
-		return err
-	}
-
-	return nil
+	text := "Conversation context successfully cleared."
+	return p.sendMessage(ctx, message.Chat.ID, text)
 }
 
 func (p *processor) handleUnknownCommand(ctx context.Context, message telegram.Message) error {
-	_, err := p.tgBotClient.SendMessage(ctx, &telegram.SendMessageRequest{
-		ChatID: message.Chat.ID,
-		Text:   "Sorry, I didn't understand that command. Type /help for a list of available commands.",
-	})
-	if err != nil {
-		p.logger.Error(fmt.Sprintf("Error sending message to chat %d", message.Chat.ID), zap.Error(err))
-		return err
-	}
-
-	return nil
+	text := "Sorry, I didn't understand that command. Type /help for a list of available commands."
+	return p.sendMessage(ctx, message.Chat.ID, text)
 }
 
 func (p *processor) handleMessage(ctx context.Context, message telegram.Message) error {
@@ -154,10 +126,7 @@ func (p *processor) handleMessage(ctx context.Context, message telegram.Message)
 	price := float64(response.Usage.TotalTokens) * pricingPerOneK[openAIModelID] / 1024
 	p.logger.Info(fmt.Sprintf("Got chat completion response, tokens used: %d, price: %f", response.Usage.TotalTokens, price))
 
-	_, err = p.tgBotClient.SendMessage(ctx, &telegram.SendMessageRequest{
-		ChatID: message.Chat.ID,
-		Text:   response.Choices[0].Message.Content,
-	})
+	err = p.sendMessage(ctx, message.Chat.ID, response.Choices[0].Message.Content)
 	if err != nil {
 		p.logger.Error(fmt.Sprintf("Error sending message to chat %d", message.Chat.ID), zap.Error(err))
 		return err
