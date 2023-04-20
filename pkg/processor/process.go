@@ -57,7 +57,7 @@ func (p *processor) getUpdates() {
 		var lastUpdateID int
 		err := p.RetryWithBackoff(3, func() error {
 			var err error
-			lastUpdateID, err = p.queue.GetLastChatUpdate(ctx)
+			lastUpdateID, err = p.queue.GetLastChatUpdateID(ctx)
 			if err != nil {
 				p.logger.Error("Error", zap.Error(err))
 			}
@@ -195,9 +195,9 @@ func (p *processor) cleanupProcessingUpdates() {
 	defer ticker.Stop()
 
 	for {
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		select {
 		case <-ticker.C:
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			err := p.queue.ResetChatUpdatesStatus(ctx)
 			if err != nil {
 				p.logger.Error("Error", zap.Error(err))

@@ -18,7 +18,7 @@ type PostgresStorage interface {
 type PostgresQueue interface {
 	InsertChatUpdate(ctx context.Context, update telegram.Update) error
 	GetNextChatUpdate(ctx context.Context, status string) (int, telegram.Update, error)
-	GetLastChatUpdate(ctx context.Context) (int, error)
+	GetLastChatUpdateID(ctx context.Context) (int, error)
 	SetChatUpdateStatus(ctx context.Context, updateID int, status string) error
 	ResetChatUpdatesStatus(ctx context.Context) error
 }

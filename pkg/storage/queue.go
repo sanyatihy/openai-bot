@@ -74,7 +74,7 @@ func (q *postgresQueue) GetNextChatUpdate(ctx context.Context, status string) (i
 	return updateID, update, tx.Commit(ctx)
 }
 
-func (q *postgresQueue) GetLastChatUpdate(ctx context.Context) (int, error) {
+func (q *postgresQueue) GetLastChatUpdateID(ctx context.Context) (int, error) {
 	var updateJSON string
 
 	err := q.db.QueryRow(ctx, fmt.Sprintf(getLastChatUpdateQuery, schema, chatUpdatesTable)).Scan(&updateJSON)
