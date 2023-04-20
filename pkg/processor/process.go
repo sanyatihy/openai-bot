@@ -37,8 +37,8 @@ func (p *processor) Start() error {
 		return err
 	}
 
-	go p.GetUpdates()
-	go p.ProcessUpdates()
+	go p.getUpdates()
+	go p.processUpdates()
 
 	return nil
 }
@@ -49,7 +49,7 @@ func (p *processor) initWorkers() {
 	}
 }
 
-func (p *processor) GetUpdates() {
+func (p *processor) getUpdates() {
 	for {
 		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 
@@ -85,14 +85,14 @@ func (p *processor) GetUpdates() {
 			p.logger.Error("Error getting updates", zap.Error(err))
 		}
 
-		p.InsertUpdates(ctx, updates)
+		p.insertUpdates(ctx, updates)
 
 		time.Sleep(3 * time.Second)
 		cancel()
 	}
 }
 
-func (p *processor) InsertUpdates(ctx context.Context, updates []telegram.Update) {
+func (p *processor) insertUpdates(ctx context.Context, updates []telegram.Update) {
 	for _, update := range updates {
 		err := p.RetryWithBackoff(3, func() error {
 			var err error
@@ -130,7 +130,7 @@ func (p *processor) worker(id int) {
 	}
 }
 
-func (p *processor) ProcessUpdates() {
+func (p *processor) processUpdates() {
 	for {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 

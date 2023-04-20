@@ -1,0 +1,3 @@
+---
+- name: Import Docker tasks
+  import_tasks: docker.yaml

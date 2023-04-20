@@ -27,5 +27,4 @@ bin/
 var/
 
 .idea/*
-
-last_update_id.json
+venv/

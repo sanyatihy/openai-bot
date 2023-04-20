@@ -1,0 +1,6 @@
+---
+# Плейбук для подготовки K8S ноды поверх базового образа
+- name: Server setup
+  hosts: all
+  roles:
+    - server_setup

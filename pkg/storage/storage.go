@@ -21,8 +21,6 @@ const (
 	getChatContextQuery         = "SELECT context FROM %s.%s WHERE chat_id = $1;"
 	updateChatContextQuery      = "INSERT INTO %s.%s (chat_id, context) VALUES ($1, $2) ON CONFLICT (chat_id) DO UPDATE SET context = EXCLUDED.context;"
 	deleteChatContextQuery      = "DELETE FROM %s.%s WHERE chat_id = $1;"
-
-	createLastUpdateIDTableQuery = "CREATE TABLE IF NOT EXISTS %s.%s (id SERIAL PRIMARY KEY, update_id INT NOT NULL);"
 )
 
 type postgresStorage struct {
