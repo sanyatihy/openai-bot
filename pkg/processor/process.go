@@ -39,6 +39,7 @@ func (p *processor) Start() error {
 
 	go p.getUpdates()
 	go p.processUpdates()
+	go p.cleanupProcessingUpdates()
 
 	return nil
 }
@@ -187,4 +188,21 @@ func (p *processor) processUpdate(ctx context.Context, update telegram.Update) e
 	}
 
 	return nil
+}
+
+func (p *processor) cleanupProcessingUpdates() {
+	ticker := time.NewTicker(1 * time.Minute)
+	defer ticker.Stop()
+
+	for {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		select {
+		case <-ticker.C:
+			err := p.queue.ResetChatUpdatesStatus(ctx)
+			if err != nil {
+				p.logger.Error("Error", zap.Error(err))
+			}
+			cancel()
+		}
+	}
 }
