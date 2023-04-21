@@ -11,15 +11,20 @@ import (
 
 const (
 	chatUpdatesTable = "chat_updates"
+
+	UpdateStatusPending    = "pending"
+	UpdateStatusProcessing = "processing"
+	UpdateStatusProcessed  = "processed"
+	UpdateStatusError      = "error"
 )
 
 const (
 	createChatUpdatesTableQuery = "CREATE TABLE IF NOT EXISTS %s.%s (id SERIAL PRIMARY KEY, update_id INTEGER NOT NULL, chat_id INTEGER NOT NULL, update_data JSONB NOT NULL, status VARCHAR(20) NOT NULL, created_at TIMESTAMP NOT NULL);"
 	insertChatUpdatesQuery      = "INSERT INTO %s.%s (update_id, chat_id, update_data, status, created_at) VALUES ($1, $2, $3, $4, $5);"
-	getNextChatUpdateQuery      = "SELECT id, update_data FROM %s.%s WHERE status = 'pending' AND chat_id NOT IN (SELECT chat_id FROM %s.%s WHERE status = 'processing') ORDER BY update_id FOR UPDATE SKIP LOCKED LIMIT 1;"
+	getNextChatUpdateQuery      = "SELECT id, update_data FROM %s.%s WHERE status = '%s' AND chat_id NOT IN (SELECT chat_id FROM %s.%s WHERE status = '%s') ORDER BY update_id FOR UPDATE SKIP LOCKED LIMIT 1;"
 	getLastChatUpdateQuery      = "SELECT update_data FROM %s.%s ORDER BY update_id DESC LIMIT 1;"
 	setChatUpdateStatusQuery    = "UPDATE %s.%s SET status = $1 WHERE id = $2;"
-	resetChatUpdatesStatusQuery = "UPDATE %s.%s SET status = 'pending' WHERE status = 'processing' AND (NOW() - created_at) > INTERVAL '60 seconds';"
+	resetChatUpdatesStatusQuery = "UPDATE %s.%s SET status = '%s' WHERE status = '%s' AND (NOW() - created_at) > INTERVAL '60 seconds';"
 )
 
 type postgresQueue struct {
@@ -38,7 +43,7 @@ func (q *postgresQueue) InsertChatUpdate(ctx context.Context, update telegram.Up
 		return err
 	}
 
-	_, err = q.db.Exec(ctx, fmt.Sprintf(insertChatUpdatesQuery, schema, chatUpdatesTable), update.UpdateID, update.Message.Chat.ID, string(updateJSON), "pending", time.Now())
+	_, err = q.db.Exec(ctx, fmt.Sprintf(insertChatUpdatesQuery, schema, chatUpdatesTable), update.UpdateID, update.Message.Chat.ID, string(updateJSON), "pending", time.Now().UTC())
 	return err
 }
 
@@ -52,7 +57,7 @@ func (q *postgresQueue) GetNextChatUpdate(ctx context.Context, status string) (i
 	}
 	defer tx.Rollback(ctx)
 
-	err = tx.QueryRow(ctx, fmt.Sprintf(getNextChatUpdateQuery, schema, chatUpdatesTable, schema, chatUpdatesTable)).Scan(&updateID, &updateJSON)
+	err = tx.QueryRow(ctx, fmt.Sprintf(getNextChatUpdateQuery, schema, chatUpdatesTable, UpdateStatusPending, schema, chatUpdatesTable, UpdateStatusProcessing)).Scan(&updateID, &updateJSON)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return 0, telegram.Update{}, nil
@@ -100,6 +105,6 @@ func (q *postgresQueue) SetChatUpdateStatus(ctx context.Context, updateID int, s
 }
 
 func (q *postgresQueue) ResetChatUpdatesStatus(ctx context.Context) error {
-	_, err := q.db.Exec(ctx, fmt.Sprintf(resetChatUpdatesStatusQuery, schema, chatUpdatesTable))
+	_, err := q.db.Exec(ctx, fmt.Sprintf(resetChatUpdatesStatusQuery, schema, chatUpdatesTable, UpdateStatusPending, UpdateStatusProcessing))
 	return err
 }

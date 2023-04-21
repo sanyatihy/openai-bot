@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sanyatihy/openai-bot/pkg/storage"
 	"github.com/sanyatihy/openai-bot/pkg/telegram"
 	"go.uber.org/zap"
 )
@@ -113,9 +114,9 @@ func (p *processor) worker(id int) {
 	for updateWithID := range p.queueUpdates {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		err := p.processUpdate(ctx, updateWithID.update)
-		status := "processed"
+		status := storage.UpdateStatusProcessed
 		if err != nil {
-			status = "error"
+			status = storage.UpdateStatusError
 		}
 		err = p.RetryWithBackoff(3, func() error {
 			err = p.queue.SetChatUpdateStatus(ctx, updateWithID.updateID, status)
@@ -151,7 +152,7 @@ func (p *processor) processUpdates() {
 		}
 
 		if updateID == 0 {
-			time.Sleep(3 * time.Second)
+			time.Sleep(1 * time.Second)
 			continue
 		}
 
@@ -163,7 +164,7 @@ func (p *processor) processUpdates() {
 
 func (p *processor) processUpdate(ctx context.Context, update telegram.Update) error {
 	if update.Message.Text == nil {
-		p.logger.Error("Error, got empty message text")
+		p.logger.Error("Got empty message text")
 
 		_, err := p.tgBotClient.SendMessage(ctx, &telegram.SendMessageRequest{
 			ChatID: update.Message.Chat.ID,
@@ -172,6 +173,10 @@ func (p *processor) processUpdate(ctx context.Context, update telegram.Update) e
 		if err != nil {
 			p.logger.Error(fmt.Sprintf("Error sending message to chat %d", update.Message.Chat.ID), zap.Error(err))
 			return err
+		}
+
+		return &InternalError{
+			Message: "got empty message text",
 		}
 	}
 
@@ -186,7 +191,6 @@ func (p *processor) processUpdate(ctx context.Context, update telegram.Update) e
 			return err
 		}
 	}
-
 	return nil
 }
 
@@ -198,6 +202,7 @@ func (p *processor) cleanupProcessingUpdates() {
 		select {
 		case <-ticker.C:
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			p.logger.Info("Cleaning up stuck updates...")
 			err := p.queue.ResetChatUpdatesStatus(ctx)
 			if err != nil {
 				p.logger.Error("Error", zap.Error(err))
