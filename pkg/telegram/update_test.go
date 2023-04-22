@@ -5,10 +5,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/sanyatihy/openai-bot/pkg/utils"
 	"io"
 	"net/http"
 	"testing"
+
+	"github.com/sanyatihy/openai-bot/pkg/utils"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"

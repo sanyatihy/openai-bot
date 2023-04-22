@@ -4,19 +4,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+
 	"github.com/jackc/pgx/v5"
 	"github.com/sanyatihy/openai-go/pkg/openai"
 )
 
 const (
-	schema            = "content"
-	chatContextTable  = "chat_context"
-	lastUpdateIDTable = "last_update_id"
+	chatContextTable = "chat_context"
 )
 
 const (
-	createSchemaQuery = "CREATE SCHEMA IF NOT EXISTS %s;"
-
 	createChatContextTableQuery = "CREATE TABLE IF NOT EXISTS %s.%s (chat_id BIGINT PRIMARY KEY, context JSONB);"
 	getChatContextQuery         = "SELECT context FROM %s.%s WHERE chat_id = $1;"
 	updateChatContextQuery      = "INSERT INTO %s.%s (chat_id, context) VALUES ($1, $2) ON CONFLICT (chat_id) DO UPDATE SET context = EXCLUDED.context;"
@@ -81,7 +78,7 @@ func (s *postgresStorage) RunInitialMigrations(ctx context.Context) error {
 
 	_, err = s.db.Exec(ctx, fmt.Sprintf(createChatUpdatesTableQuery, schema, chatUpdatesTable))
 	if err != nil {
-		return fmt.Errorf("failed to create table %s: %w", lastUpdateIDTable, err)
+		return fmt.Errorf("failed to create table %s: %w", chatUpdatesTable, err)
 	}
 
 	return nil

@@ -32,10 +32,16 @@ func (p *processor) Start() error {
 
 	p.initWorkers()
 
-	err := p.db.RunInitialMigrations(ctx)
+	err := p.RetryWithBackoff(3, func() error {
+		var err error
+		err = p.db.RunInitialMigrations(ctx)
+		if err != nil {
+			p.logger.Error("Error", zap.Error(err))
+		}
+		return err
+	})
 	if err != nil {
 		p.logger.Error("Failed to run initial migrations", zap.Error(err))
-		return err
 	}
 
 	go p.getUpdates()
