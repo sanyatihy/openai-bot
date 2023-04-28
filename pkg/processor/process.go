@@ -12,12 +12,13 @@ import (
 )
 
 const (
-	openAIModelID = "gpt-3.5-turbo"
+	openAIModelID = "gpt-4"
 )
 
 var (
 	pricingPerOneK = map[string]float64{
-		"gpt-3.5-turbo": 0.0002,
+		"gpt-3.5-turbo": 0.002,
+		"gpt-4":         0.03,
 	}
 )
 
@@ -90,7 +91,7 @@ func (p *processor) getUpdates() {
 			return err
 		})
 		if err != nil {
-			p.logger.Error("Error getting updates", zap.Error(err))
+			p.logger.Error("Failed to get updates", zap.Error(err))
 		}
 
 		p.insertUpdates(ctx, updates)
@@ -111,7 +112,7 @@ func (p *processor) insertUpdates(ctx context.Context, updates []telegram.Update
 			return err
 		})
 		if err != nil {
-			p.logger.Error("Failed to insert chat updates", zap.Error(err))
+			p.logger.Error("Failed to insert chat updates ", zap.Error(err))
 		}
 	}
 }
