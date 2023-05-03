@@ -119,7 +119,7 @@ func (p *processor) insertUpdates(ctx context.Context, updates []telegram.Update
 
 func (p *processor) worker(id int) {
 	for updateWithID := range p.queueUpdates {
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 		err := p.processUpdate(ctx, updateWithID.update)
 		status := storage.UpdateStatusProcessed
 		if err != nil {
