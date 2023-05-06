@@ -19,9 +19,9 @@ type UserSettings struct {
 
 func (p *processor) handleCommand(ctx context.Context, message telegram.Message) error {
 	if message.Text == nil {
-		p.logger.Error("Error, got empty message text")
+		p.logger.Error("Got empty message text")
 		return &InternalError{
-			Message: "error, got empty message text",
+			Message: "got empty message text",
 		}
 	}
 	text := *message.Text
@@ -54,7 +54,7 @@ func (p *processor) sendMessage(ctx context.Context, chatID int, text string, re
 
 	_, err := p.tgBotClient.SendMessage(ctx, req)
 	if err != nil {
-		p.logger.Error(fmt.Sprintf("Error sending message to chat %d", chatID), zap.Error(err))
+		p.logger.Error(fmt.Sprintf("Failed to send message to chat %d", chatID), zap.Error(err))
 	}
 	return err
 }
@@ -84,7 +84,7 @@ func (p *processor) handleAboutCommand(ctx context.Context, message telegram.Mes
 func (p *processor) handleClearCommand(ctx context.Context, message telegram.Message) error {
 	err := p.db.ClearChatContext(ctx, message.Chat.ID)
 	if err != nil {
-		p.logger.Error(fmt.Sprintf("Error clearing chat %d context in db", message.Chat.ID), zap.Error(err))
+		p.logger.Error(fmt.Sprintf("Failed to clear chat %d context in db", message.Chat.ID), zap.Error(err))
 		return err
 	}
 
@@ -105,16 +105,16 @@ func (p *processor) handleUnknownCommand(ctx context.Context, message telegram.M
 
 func (p *processor) handleMessage(ctx context.Context, message telegram.Message) error {
 	if message.Text == nil {
-		p.logger.Error("Error, got empty message text")
+		p.logger.Error("Got empty message text")
 		return &InternalError{
-			Message: "error, got empty message text",
+			Message: "got empty message text",
 		}
 	}
 	text := *message.Text
 
 	modelID, existingContext, err := p.db.GetChatContext(ctx, message.Chat.ID)
 	if err != nil {
-		p.logger.Error(fmt.Sprintf("Error retrieving chat %d context from db", message.Chat.ID), zap.Error(err))
+		p.logger.Error(fmt.Sprintf("Failed to get chat %d context from db", message.Chat.ID), zap.Error(err))
 		return err
 	}
 
@@ -151,7 +151,7 @@ func (p *processor) handleMessage(ctx context.Context, message telegram.Message)
 	messageText := fmt.Sprintf("%s\n\nModel: %s, Tokens used: %d, Cost: %.5f$", response.Choices[0].Message.Content, model, response.Usage.TotalTokens, cost)
 	err = p.sendMessage(ctx, message.Chat.ID, messageText, nil)
 	if err != nil {
-		p.logger.Error(fmt.Sprintf("Error sending message to chat %d", message.Chat.ID), zap.Error(err))
+		p.logger.Error(fmt.Sprintf("Failed to send message to chat %d", message.Chat.ID), zap.Error(err))
 		return err
 	}
 
@@ -162,7 +162,7 @@ func (p *processor) handleMessage(ctx context.Context, message telegram.Message)
 
 	err = p.db.UpdateChatContext(ctx, message.Chat.ID, messages, model)
 	if err != nil {
-		p.logger.Error(fmt.Sprintf("Error updating chat %d context in db", message.Chat.ID), zap.Error(err))
+		p.logger.Error(fmt.Sprintf("Failed to update chat %d context in db", message.Chat.ID), zap.Error(err))
 		return err
 	}
 
