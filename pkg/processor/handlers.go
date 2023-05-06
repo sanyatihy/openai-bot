@@ -65,10 +65,11 @@ func (p *processor) handleStartCommand(ctx context.Context, message telegram.Mes
 }
 
 func (p *processor) handleHelpCommand(ctx context.Context, message telegram.Message) error {
-	text := `Here is a list of available commands:
+	text := `Available commands:
 
 /start - Start the bot
 /clear - Clear conversation context
+/settings - Update bot settings
 /help - Show help message
 /about - About the bot
 `
