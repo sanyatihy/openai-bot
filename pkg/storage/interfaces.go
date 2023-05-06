@@ -10,9 +10,10 @@ import (
 )
 
 type PostgresStorage interface {
-	GetChatContext(ctx context.Context, chatID int) ([]openai.Message, error)
-	UpdateChatContext(ctx context.Context, chatID int, messages []openai.Message) error
+	GetChatContext(ctx context.Context, chatID int) (string, []openai.Message, error)
+	UpdateChatContext(ctx context.Context, chatID int, messages []openai.Message, model string) error
 	ClearChatContext(ctx context.Context, chatID int) error
+	UpdateChatModel(ctx context.Context, chatID int, gptModel string) error
 	RunInitialMigrations(ctx context.Context) error
 }
 

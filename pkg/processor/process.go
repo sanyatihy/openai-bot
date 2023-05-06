@@ -11,14 +11,20 @@ import (
 	"go.uber.org/zap"
 )
 
-const (
-	openAIModelID = "gpt-4"
-)
-
 var (
-	pricingPerOneK = map[string]float64{
-		"gpt-3.5-turbo": 0.002,
-		"gpt-4":         0.03,
+	pricingPerOneK = map[string]map[string]float64{
+		"gpt-3.5-turbo": {
+			"prompt":     0.002,
+			"completion": 0.002,
+		},
+		"gpt-4": {
+			"prompt":     0.03,
+			"completion": 0.06,
+		},
+	}
+	openAIModelID = map[string]string{
+		"gpt-3.5": "gpt-3.5-turbo",
+		"gpt-4":   "gpt-4",
 	}
 )
 
@@ -77,7 +83,7 @@ func (p *processor) getUpdates() {
 
 		getUpdatesRequest := &telegram.GetUpdatesRequest{
 			Offset:  lastUpdateID + 1,
-			Timeout: 30,
+			Timeout: 60,
 		}
 
 		p.logger.Info("Getting updates...")
@@ -119,7 +125,7 @@ func (p *processor) insertUpdates(ctx context.Context, updates []telegram.Update
 
 func (p *processor) worker(id int) {
 	for updateWithID := range p.queueUpdates {
-		ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 		err := p.processUpdate(ctx, updateWithID.update)
 		status := storage.UpdateStatusProcessed
 		if err != nil {
@@ -170,6 +176,15 @@ func (p *processor) processUpdates() {
 }
 
 func (p *processor) processUpdate(ctx context.Context, update telegram.Update) error {
+	if update.CallbackQuery != nil {
+		err := p.handleCallbackQuery(ctx, update.CallbackQuery)
+		if err != nil {
+			p.logger.Error("Failed to handle callback query", zap.Error(err))
+			return err
+		}
+		return nil
+	}
+
 	if update.Message.Text == nil {
 		p.logger.Error("Got empty message text")
 
@@ -178,7 +193,7 @@ func (p *processor) processUpdate(ctx context.Context, update telegram.Update) e
 			Text:   "That doesn't look like a valid message to me, try again",
 		})
 		if err != nil {
-			p.logger.Error(fmt.Sprintf("Error sending message to chat %d", update.Message.Chat.ID), zap.Error(err))
+			p.logger.Error(fmt.Sprintf("Failed to send message to chat %d", update.Message.Chat.ID), zap.Error(err))
 			return err
 		}
 
@@ -189,12 +204,12 @@ func (p *processor) processUpdate(ctx context.Context, update telegram.Update) e
 
 	if strings.HasPrefix(*update.Message.Text, "/") {
 		if err := p.handleCommand(ctx, update.Message); err != nil {
-			p.logger.Error(fmt.Sprintf("Error handling command in chat %d", update.Message.Chat.ID), zap.Error(err))
+			p.logger.Error(fmt.Sprintf("Failed to handle command in chat %d", update.Message.Chat.ID), zap.Error(err))
 			return err
 		}
 	} else {
 		if err := p.handleMessage(ctx, update.Message); err != nil {
-			p.logger.Error(fmt.Sprintf("Error handling message in chat %d", update.Message.Chat.ID), zap.Error(err))
+			p.logger.Error(fmt.Sprintf("Failed to handle message in chat %d", update.Message.Chat.ID), zap.Error(err))
 			return err
 		}
 	}

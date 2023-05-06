@@ -25,7 +25,7 @@ const (
 	getNextChatUpdateQuery      = "SELECT id, update_data FROM %s.%s WHERE status = '%s' AND chat_id NOT IN (SELECT chat_id FROM %s.%s WHERE status = '%s') ORDER BY update_id FOR UPDATE SKIP LOCKED LIMIT 1;"
 	getLastChatUpdateQuery      = "SELECT update_data FROM %s.%s ORDER BY update_id DESC LIMIT 1;"
 	setChatUpdateStatusQuery    = "UPDATE %s.%s SET status = $1 WHERE id = $2;"
-	resetChatUpdatesStatusQuery = "UPDATE %s.%s SET status = '%s' WHERE status = '%s' AND (NOW() - created_at) > INTERVAL '120 seconds';"
+	resetChatUpdatesStatusQuery = "UPDATE %s.%s SET status = '%s' WHERE status = '%s' AND (NOW() - created_at) > INTERVAL '180 seconds';"
 )
 
 type postgresQueue struct {
